@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>성남시 교통체계개선사업 혼잡구간 조사</title>
+
+  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=네이버_CLIENT_ID&submodules=drawing"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+
+    #map {
+      width: 100%;
+      height: 500px;
+      margin: 16px 0;
+      border: 1px solid #ddd;
+    }
+
+    .box {
+      padding: 16px;
+      background: #f7f8fa;
+      border-radius: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      background: #0068ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>성남시 교통체계개선사업 혼잡구간 의견조사</h2>
+
+  <input id="organization" placeholder="소속" />
+  <input id="name" placeholder="이름" />
+  <input id="phone" placeholder="연락처" />
+
+  <p>지도에서 혼잡구간을 선으로 표시한 후, 메모를 입력해주세요.</p>
+
+  <div id="map"></div>
+
+  <div class="box">
+    <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
+    <button onclick="saveSection()">혼잡구간 저장</button>
+  </div>
+
+  <h3>저장된 혼잡구간</h3>
+  <ul id="sectionList"></ul>
+
+  <button onclick="submitSurvey()">최종 제출</button>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzMw_B8AKWkji2nR3bBWXbjsBLJZYcZ8nG_9lQ36cx5ZK8MwclkZZPgC-5X-yiltC8/exec";
+
+    const map = new naver.maps.Map("map", {
+      center: new naver.maps.LatLng(37.4201, 127.1265),
+      zoom: 13
+    });
+
+    const drawingManager = new naver.maps.drawing.DrawingManager({
+      map: map,
+      drawingControl: [
+        naver.maps.drawing.DrawingMode.HAND,
+        naver.maps.drawing.DrawingMode.POLYLINE
+      ],
+      polylineOptions: {
+        strokeColor: "#ff0000",
+        strokeWeight: 5,
+        strokeOpacity: 0.9
+      }
+    });
+
+    let currentPolyline = null;
+    let sections = [];
+
+    naver.maps.Event.addListener(drawingManager, "polylineAdded", function(polyline) {
+      currentPolyline = polyline;
+    });
+
+    function saveSection() {
+      const memo = document.getElementById("memo").value.trim();
+
+      if (!currentPolyline) {
+        alert("먼저 지도에서 혼잡구간을 선으로 표시해주세요.");
+        return;
+      }
+
+      if (!memo) {
+        alert("혼잡구간 메모를 입력해주세요.");
+        return;
+      }
+
+      const path = currentPolyline.getPath().getArray().map(coord => ({
+        lat: coord.lat(),
+        lng: coord.lng()
+      }));
+
+      sections.push({
+        path: path,
+        memo: memo
+      });
+
+      const li = document.createElement("li");
+      li.textContent = `혼잡구간 ${sections.length}: ${memo}`;
+      document.getElementById("sectionList").appendChild(li);
+
+      document.getElementById("memo").value = "";
+      currentPolyline = null;
+
+      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에 다시 선을 그려주세요.");
+    }
+
+    function submitSurvey() {
+      const organization = document.getElementById("organization").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+
+      if (!organization || !name || !phone) {
+        alert("소속, 이름, 연락처를 모두 입력해주세요.");
+        return;
+      }
+
+      if (sections.length === 0) {
+        alert("혼잡구간을 1개 이상 저장해주세요.");
+        return;
+      }
+
+      fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+          organization,
+          name,
+          phone,
+          sections
+        })
+      });
+
+      alert("제출되었습니다. 감사합니다.");
+      location.reload();
+    }
+  </script>
+</body>
+</html>
