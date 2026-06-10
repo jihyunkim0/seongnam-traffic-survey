@@ -87,8 +87,6 @@
 
   <button onclick="submitSurvey()">최종 제출</button>
 
-  <iframe name="hiddenFrame" style="display:none;"></iframe>
-
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzMw_B8AKWkji2nR3bBWXbjsBLJZYcZ8nG_9lQ36cx5ZK8MwclkZZPgC-5X-yiltC8/exec";
 
@@ -202,10 +200,12 @@
         sections
       });
 
+      console.log("제출 payload:", payload);
+
       const form = document.createElement("form");
       form.method = "POST";
       form.action = WEB_APP_URL;
-      form.target = "hiddenFrame";
+      form.target = "_blank";
 
       const input = document.createElement("input");
       input.type = "hidden";
@@ -215,8 +215,6 @@
       form.appendChild(input);
       document.body.appendChild(form);
       form.submit();
-
-      alert("제출되었습니다. Google Sheets를 확인해주세요.");
     }
   </script>
 </body>
