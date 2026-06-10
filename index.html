@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <title>성남시 교통체계개선사업 혼잡구간 조사</title>
 
-<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=8z72u21kct&submodules=drawing"></script>
+  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=8z72u21kct"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -43,6 +44,21 @@
       cursor: pointer;
       font-weight: bold;
     }
+
+    .gray-btn {
+      background: #666;
+    }
+
+    .guide {
+      background: #eef5ff;
+      padding: 12px;
+      border-radius: 8px;
+      line-height: 1.6;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 
@@ -53,11 +69,15 @@
   <input id="name" placeholder="이름" />
   <input id="phone" placeholder="연락처" />
 
-  <p>지도에서 혼잡구간을 선으로 표시한 후, 메모를 입력해주세요.</p>
+  <div class="guide">
+    지도에서 혼잡구간의 <b>시작점</b>과 <b>끝점</b>을 차례로 클릭해주세요.<br>
+    도로가 꺾이는 구간은 중간 지점을 추가로 클릭하면 됩니다.
+  </div>
 
   <div id="map"></div>
 
   <div class="box">
+    <button class="gray-btn" onclick="resetCurrentLine()">현재 표시한 구간 다시 그리기</button>
     <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
     <button onclick="saveSection()">혼잡구간 저장</button>
   </div>
@@ -75,31 +95,56 @@
       zoom: 13
     });
 
-    const drawingManager = new naver.maps.drawing.DrawingManager({
-      map: map,
-      drawingControl: [
-        naver.maps.drawing.DrawingMode.HAND,
-        naver.maps.drawing.DrawingMode.POLYLINE
-      ],
-      polylineOptions: {
-        strokeColor: "#ff0000",
-        strokeWeight: 5,
-        strokeOpacity: 0.9
-      }
-    });
-
+    let currentPath = [];
     let currentPolyline = null;
+    let currentMarkers = [];
+    let savedPolylines = [];
     let sections = [];
 
-    naver.maps.Event.addListener(drawingManager, "polylineAdded", function(polyline) {
-      currentPolyline = polyline;
+    naver.maps.Event.addListener(map, "click", function(e) {
+      addPoint(e.coord);
     });
+
+    function addPoint(coord) {
+      currentPath.push(coord);
+
+      const marker = new naver.maps.Marker({
+        position: coord,
+        map: map
+      });
+
+      currentMarkers.push(marker);
+
+      if (!currentPolyline) {
+        currentPolyline = new naver.maps.Polyline({
+          map: map,
+          path: currentPath,
+          strokeColor: "#ff0000",
+          strokeWeight: 5,
+          strokeOpacity: 0.9
+        });
+      } else {
+        currentPolyline.setPath(currentPath);
+      }
+    }
+
+    function resetCurrentLine() {
+      currentPath = [];
+
+      if (currentPolyline) {
+        currentPolyline.setMap(null);
+        currentPolyline = null;
+      }
+
+      currentMarkers.forEach(marker => marker.setMap(null));
+      currentMarkers = [];
+    }
 
     function saveSection() {
       const memo = document.getElementById("memo").value.trim();
 
-      if (!currentPolyline) {
-        alert("먼저 지도에서 혼잡구간을 선으로 표시해주세요.");
+      if (currentPath.length < 2) {
+        alert("혼잡구간은 최소 2개 지점을 클릭해야 저장할 수 있습니다.");
         return;
       }
 
@@ -108,7 +153,7 @@
         return;
       }
 
-      const path = currentPolyline.getPath().getArray().map(coord => ({
+      const path = currentPath.map(coord => ({
         lat: coord.lat(),
         lng: coord.lng()
       }));
@@ -118,14 +163,19 @@
         memo: memo
       });
 
+      savedPolylines.push(currentPolyline);
+
       const li = document.createElement("li");
       li.textContent = `혼잡구간 ${sections.length}: ${memo}`;
       document.getElementById("sectionList").appendChild(li);
 
       document.getElementById("memo").value = "";
-      currentPolyline = null;
 
-      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에 다시 선을 그려주세요.");
+      currentPath = [];
+      currentPolyline = null;
+      currentMarkers = [];
+
+      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
     }
 
     function submitSurvey() {
