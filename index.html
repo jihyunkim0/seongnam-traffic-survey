@@ -90,14 +90,19 @@
   <input id="phone" placeholder="연락처" />
 
   <div class="guide">
-    지도에서 혼잡구간의 <b>시작점</b>과 <b>끝점</b>을 차례로 클릭해주세요.<br>
-    도로가 꺾이는 구간은 중간 지점을 추가로 클릭하면 됩니다.
+    표시방식을 선택한 후 지도에서 지점을 클릭해주세요.<br>
+    <b>구간 표시</b>는 최소 2개 지점, <b>영역 표시</b>는 최소 3개 지점이 필요합니다.
   </div>
 
   <div id="map"></div>
 
   <div class="box">
-    <button class="gray-btn" onclick="resetCurrentLine()">현재 표시한 구간 다시 그리기</button>
+    <button class="gray-btn" onclick="resetCurrentShape()">현재 표시한 구간/영역 다시 그리기</button>
+
+    <select id="drawType" onchange="resetCurrentShape()">
+      <option value="line">구간 표시</option>
+      <option value="polygon">영역 표시</option>
+    </select>
 
     <select id="issueType">
       <option value="">문제유형을 선택해주세요.</option>
@@ -112,7 +117,7 @@
 
     <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
 
-    <button onclick="saveSection()">혼잡구간 저장</button>
+    <button onclick="saveSection()">혼잡구간/영역 저장</button>
   </div>
 
   <h3>저장된 혼잡구간</h3>
@@ -132,7 +137,7 @@
     });
 
     let currentPath = [];
-    let currentPolyline = null;
+    let currentShape = null;
     let currentMarkers = [];
     let sections = [];
 
@@ -140,7 +145,13 @@
       addPoint(e.coord);
     });
 
+    function getDrawTypeLabel(drawType) {
+      return drawType === "polygon" ? "영역" : "구간";
+    }
+
     function addPoint(coord) {
+      const drawType = document.getElementById("drawType").value;
+
       currentPath.push(coord);
 
       const marker = new naver.maps.Marker({
@@ -150,8 +161,12 @@
 
       currentMarkers.push(marker);
 
-      if (!currentPolyline) {
-        currentPolyline = new naver.maps.Polyline({
+      if (currentShape) {
+        currentShape.setMap(null);
+      }
+
+      if (drawType === "line") {
+        currentShape = new naver.maps.Polyline({
           map: map,
           path: currentPath,
           strokeColor: "#ff0000",
@@ -159,16 +174,24 @@
           strokeOpacity: 0.9
         });
       } else {
-        currentPolyline.setPath(currentPath);
+        currentShape = new naver.maps.Polygon({
+          map: map,
+          paths: currentPath,
+          strokeColor: "#ff0000",
+          strokeWeight: 3,
+          strokeOpacity: 0.9,
+          fillColor: "#ff0000",
+          fillOpacity: 0.25
+        });
       }
     }
 
-    function resetCurrentLine() {
+    function resetCurrentShape() {
       currentPath = [];
 
-      if (currentPolyline) {
-        currentPolyline.setMap(null);
-        currentPolyline = null;
+      if (currentShape) {
+        currentShape.setMap(null);
+        currentShape = null;
       }
 
       currentMarkers.forEach(marker => marker.setMap(null));
@@ -176,11 +199,17 @@
     }
 
     function saveSection() {
+      const drawType = document.getElementById("drawType").value;
       const issueType = document.getElementById("issueType").value;
       const memo = document.getElementById("memo").value.trim();
 
-      if (currentPath.length < 2) {
-        alert("혼잡구간은 최소 2개 지점을 클릭해야 저장할 수 있습니다.");
+      if (drawType === "line" && currentPath.length < 2) {
+        alert("구간 표시는 최소 2개 지점을 클릭해야 저장할 수 있습니다.");
+        return;
+      }
+
+      if (drawType === "polygon" && currentPath.length < 3) {
+        alert("영역 표시는 최소 3개 지점을 클릭해야 저장할 수 있습니다.");
         return;
       }
 
@@ -190,7 +219,7 @@
       }
 
       if (!memo) {
-        alert("혼잡구간 메모를 입력해주세요.");
+        alert("메모를 입력해주세요.");
         return;
       }
 
@@ -199,14 +228,15 @@
         lng: coord.lng()
       }));
 
-      const savedPolyline = currentPolyline;
+      const savedShape = currentShape;
       const savedMarkers = currentMarkers.slice();
 
       sections.push({
+        drawType: getDrawTypeLabel(drawType),
         issueType: issueType,
         path: path,
         memo: memo,
-        polyline: savedPolyline,
+        shape: savedShape,
         markers: savedMarkers
       });
 
@@ -214,12 +244,12 @@
       document.getElementById("issueType").value = "";
 
       currentPath = [];
-      currentPolyline = null;
+      currentShape = null;
       currentMarkers = [];
 
       renderSectionList();
 
-      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
+      alert("저장되었습니다. 추가 구간 또는 영역이 있으면 지도에서 다시 지점을 클릭해주세요.");
     }
 
     function renderSectionList() {
@@ -229,7 +259,7 @@
       sections.forEach((section, index) => {
         const li = document.createElement("li");
         li.innerHTML = `
-          <b>혼잡구간 ${index + 1}</b> [${section.issueType}] : ${section.memo}
+          <b>${section.drawType} ${index + 1}</b> [${section.issueType}] : ${section.memo}
           <button class="red-btn" onclick="deleteSection(${index})">삭제</button>
         `;
         list.appendChild(li);
@@ -239,8 +269,8 @@
     function deleteSection(index) {
       const section = sections[index];
 
-      if (section.polyline) {
-        section.polyline.setMap(null);
+      if (section.shape) {
+        section.shape.setMap(null);
       }
 
       if (section.markers) {
@@ -263,11 +293,12 @@
       }
 
       if (sections.length === 0) {
-        alert("혼잡구간을 1개 이상 저장해주세요.");
+        alert("혼잡구간 또는 영역을 1개 이상 저장해주세요.");
         return;
       }
 
       const cleanSections = sections.map(section => ({
+        drawType: section.drawType,
         issueType: section.issueType,
         path: section.path,
         memo: section.memo
