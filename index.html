@@ -78,7 +78,7 @@
 
   <div class="box">
     <button class="gray-btn" onclick="resetCurrentLine()">현재 표시한 구간 다시 그리기</button>
-    <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
+    <textarea id="memo" rows="4" placeholder="1혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
     <button onclick="saveSection()">혼잡구간 저장</button>
   </div>
 
@@ -86,6 +86,8 @@
   <ul id="sectionList"></ul>
 
   <button onclick="submitSurvey()">최종 제출</button>
+
+  <iframe name="hiddenFrame" style="display:none;"></iframe>
 
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzMw_B8AKWkji2nR3bBWXbjsBLJZYcZ8nG_9lQ36cx5ZK8MwclkZZPgC-5X-yiltC8/exec";
@@ -178,7 +180,7 @@
       alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
     }
 
-    async function submitSurvey() {
+    function submitSurvey() {
       const organization = document.getElementById("organization").value.trim();
       const name = document.getElementById("name").value.trim();
       const phone = document.getElementById("phone").value.trim();
@@ -193,28 +195,28 @@
         return;
       }
 
-      try {
-        await fetch(WEB_APP_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "text/plain;charset=utf-8"
-          },
-          body: JSON.stringify({
-            organization,
-            name,
-            phone,
-            sections
-          })
-        });
+      const payload = JSON.stringify({
+        organization,
+        name,
+        phone,
+        sections
+      });
 
-        alert("제출되었습니다. 감사합니다.");
-        location.reload();
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = WEB_APP_URL;
+      form.target = "hiddenFrame";
 
-      } catch (error) {
-        alert("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
-        console.error(error);
-      }
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "payload";
+      input.value = payload;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+
+      alert("제출되었습니다. Google Sheets를 확인해주세요.");
     }
   </script>
 </body>
