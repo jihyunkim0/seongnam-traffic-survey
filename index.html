@@ -178,7 +178,7 @@
       alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
     }
 
-    function submitSurvey() {
+    async function submitSurvey() {
       const organization = document.getElementById("organization").value.trim();
       const name = document.getElementById("name").value.trim();
       const phone = document.getElementById("phone").value.trim();
@@ -193,22 +193,28 @@
         return;
       }
 
-      fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8"
-        },
-        body: JSON.stringify({
-          organization,
-          name,
-          phone,
-          sections
-        })
-      });
+      try {
+        await fetch(WEB_APP_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            organization,
+            name,
+            phone,
+            sections
+          })
+        });
 
-      alert("제출되었습니다. 감사합니다.");
-      location.reload();
+        alert("제출되었습니다. 감사합니다.");
+        location.reload();
+
+      } catch (error) {
+        alert("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
+        console.error(error);
+      }
     }
   </script>
 </body>
