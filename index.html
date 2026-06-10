@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <title>성남시 교통체계개선사업 혼잡구간 조사</title>
 
-  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=8z72u21kct"></script>
-
+<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=8z72u21kct&submodules=drawing"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -44,14 +43,6 @@
       cursor: pointer;
       font-weight: bold;
     }
-
-    .gray-btn {
-      background: #666;
-    }
-
-    li {
-      margin-bottom: 8px;
-    }
   </style>
 </head>
 
@@ -62,15 +53,11 @@
   <input id="name" placeholder="이름" />
   <input id="phone" placeholder="연락처" />
 
-  <p>
-    지도에서 혼잡구간의 시작점과 끝점을 차례로 클릭해주세요.<br>
-    여러 지점을 클릭하면 꺾인 구간으로 저장할 수 있습니다.
-  </p>
+  <p>지도에서 혼잡구간을 선으로 표시한 후, 메모를 입력해주세요.</p>
 
   <div id="map"></div>
 
   <div class="box">
-    <button class="gray-btn" onclick="resetCurrentLine()">현재 그린 구간 다시 그리기</button>
     <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
     <button onclick="saveSection()">혼잡구간 저장</button>
   </div>
@@ -83,62 +70,36 @@
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzMw_B8AKWkji2nR3bBWXbjsBLJZYcZ8nG_9lQ36cx5ZK8MwclkZZPgC-5X-yiltC8/exec";
 
-    let map;
-    let currentPath = [];
+    const map = new naver.maps.Map("map", {
+      center: new naver.maps.LatLng(37.4201, 127.1265),
+      zoom: 13
+    });
+
+    const drawingManager = new naver.maps.drawing.DrawingManager({
+      map: map,
+      drawingControl: [
+        naver.maps.drawing.DrawingMode.HAND,
+        naver.maps.drawing.DrawingMode.POLYLINE
+      ],
+      polylineOptions: {
+        strokeColor: "#ff0000",
+        strokeWeight: 5,
+        strokeOpacity: 0.9
+      }
+    });
+
     let currentPolyline = null;
-    let currentMarkers = [];
     let sections = [];
 
-    function initMap() {
-      map = new naver.maps.Map("map", {
-        center: new naver.maps.LatLng(37.4201, 127.1265),
-        zoom: 13
-      });
-
-      naver.maps.Event.addListener(map, "click", function(e) {
-        addPoint(e.coord);
-      });
-    }
-
-    function addPoint(coord) {
-      currentPath.push(coord);
-
-      const marker = new naver.maps.Marker({
-        position: coord,
-        map: map
-      });
-      currentMarkers.push(marker);
-
-      if (!currentPolyline) {
-        currentPolyline = new naver.maps.Polyline({
-          map: map,
-          path: currentPath,
-          strokeColor: "#ff0000",
-          strokeWeight: 5,
-          strokeOpacity: 0.9
-        });
-      } else {
-        currentPolyline.setPath(currentPath);
-      }
-    }
-
-    function resetCurrentLine() {
-      currentPath = [];
-
-      if (currentPolyline) {
-        currentPolyline.setMap(null);
-        currentPolyline = null;
-      }
-
-      currentMarkers.forEach(marker => marker.setMap(null));
-      currentMarkers = [];
-    }
+    naver.maps.Event.addListener(drawingManager, "polylineAdded", function(polyline) {
+      currentPolyline = polyline;
+    });
 
     function saveSection() {
       const memo = document.getElementById("memo").value.trim();
 
-      if (currentPath.length < 2) {
-        alert("혼잡구간은 최소 2개 지점을 클릭해야 저장할 수 있습니다.");
+      if (!currentPolyline) {
+        alert("먼저 지도에서 혼잡구간을 선으로 표시해주세요.");
         return;
       }
 
@@ -147,7 +108,7 @@
         return;
       }
 
-      const path = currentPath.map(coord => ({
+      const path = currentPolyline.getPath().getArray().map(coord => ({
         lat: coord.lat(),
         lng: coord.lng()
       }));
@@ -162,12 +123,9 @@
       document.getElementById("sectionList").appendChild(li);
 
       document.getElementById("memo").value = "";
-
       currentPolyline = null;
-      currentPath = [];
-      currentMarkers = [];
 
-      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
+      alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에 다시 선을 그려주세요.");
     }
 
     function submitSurvey() {
@@ -202,8 +160,6 @@
       alert("제출되었습니다. 감사합니다.");
       location.reload();
     }
-
-    window.onload = initMap;
   </script>
 </body>
 </html>
