@@ -14,7 +14,7 @@
       padding: 20px;
     }
 
-    input, textarea, button {
+    input, textarea, select, button {
       width: 100%;
       padding: 12px;
       margin: 8px 0;
@@ -45,8 +45,21 @@
       font-weight: bold;
     }
 
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
     .gray-btn {
       background: #666;
+    }
+
+    .red-btn {
+      background: #d93025;
+      width: auto;
+      padding: 6px 10px;
+      font-size: 13px;
+      margin-left: 8px;
     }
 
     .guide {
@@ -54,10 +67,17 @@
       padding: 12px;
       border-radius: 8px;
       line-height: 1.6;
+      margin: 12px 0;
     }
 
     li {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #666;
     }
   </style>
 </head>
@@ -78,27 +98,42 @@
 
   <div class="box">
     <button class="gray-btn" onclick="resetCurrentLine()">현재 표시한 구간 다시 그리기</button>
+
+    <select id="issueType">
+      <option value="">문제유형을 선택해주세요.</option>
+      <option value="차량정체">차량정체</option>
+      <option value="보행불편">보행불편</option>
+      <option value="자전거불편">자전거불편</option>
+      <option value="대중교통불편">대중교통불편</option>
+      <option value="주차문제">주차문제</option>
+      <option value="교통안전">교통안전</option>
+      <option value="기타">기타</option>
+    </select>
+
     <textarea id="memo" rows="4" placeholder="혼잡 시간대, 혼잡 원인, 개선 의견 등을 작성해주세요."></textarea>
+
     <button onclick="saveSection()">혼잡구간 저장</button>
   </div>
 
   <h3>저장된 혼잡구간</h3>
+  <p class="small">잘못 저장한 구간은 삭제할 수 있습니다.</p>
   <ul id="sectionList"></ul>
 
-  <button onclick="submitSurvey()">최종 제출</button>
+  <button id="submitBtn" onclick="submitSurvey()">최종 제출</button>
+
+  <iframe name="hiddenFrame" style="display:none;"></iframe>
 
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzMw_B8AKWkji2nR3bBWXbjsBLJZYcZ8nG_9lQ36cx5ZK8MwclkZZPgC-5X-yiltC8/exec";
 
     const map = new naver.maps.Map("map", {
       center: new naver.maps.LatLng(37.4201, 127.1265),
-      zoom: 13
+      zoom: 11
     });
 
     let currentPath = [];
     let currentPolyline = null;
     let currentMarkers = [];
-    let savedPolylines = [];
     let sections = [];
 
     naver.maps.Event.addListener(map, "click", function(e) {
@@ -141,10 +176,16 @@
     }
 
     function saveSection() {
+      const issueType = document.getElementById("issueType").value;
       const memo = document.getElementById("memo").value.trim();
 
       if (currentPath.length < 2) {
         alert("혼잡구간은 최소 2개 지점을 클릭해야 저장할 수 있습니다.");
+        return;
+      }
+
+      if (!issueType) {
+        alert("문제유형을 선택해주세요.");
         return;
       }
 
@@ -158,30 +199,63 @@
         lng: coord.lng()
       }));
 
+      const savedPolyline = currentPolyline;
+      const savedMarkers = currentMarkers.slice();
+
       sections.push({
+        issueType: issueType,
         path: path,
-        memo: memo
+        memo: memo,
+        polyline: savedPolyline,
+        markers: savedMarkers
       });
 
-      savedPolylines.push(currentPolyline);
-
-      const li = document.createElement("li");
-      li.textContent = `혼잡구간 ${sections.length}: ${memo}`;
-      document.getElementById("sectionList").appendChild(li);
-
       document.getElementById("memo").value = "";
+      document.getElementById("issueType").value = "";
 
       currentPath = [];
       currentPolyline = null;
       currentMarkers = [];
 
+      renderSectionList();
+
       alert("혼잡구간이 저장되었습니다. 추가 구간이 있으면 지도에서 다시 지점을 클릭해주세요.");
+    }
+
+    function renderSectionList() {
+      const list = document.getElementById("sectionList");
+      list.innerHTML = "";
+
+      sections.forEach((section, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <b>혼잡구간 ${index + 1}</b> [${section.issueType}] : ${section.memo}
+          <button class="red-btn" onclick="deleteSection(${index})">삭제</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function deleteSection(index) {
+      const section = sections[index];
+
+      if (section.polyline) {
+        section.polyline.setMap(null);
+      }
+
+      if (section.markers) {
+        section.markers.forEach(marker => marker.setMap(null));
+      }
+
+      sections.splice(index, 1);
+      renderSectionList();
     }
 
     function submitSurvey() {
       const organization = document.getElementById("organization").value.trim();
       const name = document.getElementById("name").value.trim();
       const phone = document.getElementById("phone").value.trim();
+      const submitBtn = document.getElementById("submitBtn");
 
       if (!organization || !name || !phone) {
         alert("소속, 이름, 연락처를 모두 입력해주세요.");
@@ -193,19 +267,23 @@
         return;
       }
 
+      const cleanSections = sections.map(section => ({
+        issueType: section.issueType,
+        path: section.path,
+        memo: section.memo
+      }));
+
       const payload = JSON.stringify({
         organization,
         name,
         phone,
-        sections
+        sections: cleanSections
       });
-
-      console.log("제출 payload:", payload);
 
       const form = document.createElement("form");
       form.method = "POST";
       form.action = WEB_APP_URL;
-      form.target = "_blank";
+      form.target = "hiddenFrame";
 
       const input = document.createElement("input");
       input.type = "hidden";
@@ -214,7 +292,16 @@
 
       form.appendChild(input);
       document.body.appendChild(form);
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "제출 중입니다...";
+
       form.submit();
+
+      setTimeout(() => {
+        alert("제출되었습니다. 감사합니다.");
+        location.reload();
+      }, 1200);
     }
   </script>
 </body>
