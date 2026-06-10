@@ -22,6 +22,28 @@
       font-size: 15px;
     }
 
+    .form-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 12px;
+    }
+
+    .form-row label {
+      width: 90px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .form-row input {
+      flex: 1;
+      margin: 0;
+    }
+
+    .required {
+      color: #d93025;
+    }
+
     #map {
       width: 100%;
       height: 500px;
@@ -78,16 +100,39 @@
     .small {
       font-size: 13px;
       color: #666;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 600px) {
+      .form-row {
+        display: block;
+      }
+
+      .form-row label {
+        display: block;
+        width: auto;
+        margin-bottom: 4px;
+      }
     }
   </style>
 </head>
 
 <body>
   <h2>성남시 교통체계개선사업 혼잡구간 의견조사</h2>
+  <div class="form-row">
+    <label for="organization">소속 <span class="required">*</span></label>
+    <input id="organization" placeholder="예) 성남시청, ○○동 주민, ○○업체" />
+  </div>
 
-  <input id="organization" placeholder="소속" />
-  <input id="name" placeholder="이름" />
-  <input id="phone" placeholder="연락처" />
+  <div class="form-row">
+    <label for="name">이름 <span class="required">*</span></label>
+    <input id="name" placeholder="성명을 입력해주세요" />
+  </div>
+
+  <div class="form-row">
+    <label for="phone">연락처 <span class="required">*</span></label>
+    <input id="phone" placeholder="010-0000-0000" />
+  </div>
 
   <div class="guide">
     표시방식을 선택한 후 지도에서 지점을 클릭해주세요.<br>
